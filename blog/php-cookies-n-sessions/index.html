@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]><html class="no-js lt-ie9 lt-ie8 lt-ie7"><![endif]-->
+<!--[if IE 7]><html class="no-js lt-ie9 lt-ie8" <![endif]-->
+<!--[if IE 8]><html class="no-js lt-ie9" <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <title>PHP - Cookies & Sessions</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/assets/img/favicon.ico" />
+
+    <!-- Come and get me RSS readers -->
+    <link rel="alternate" type="application/rss+xml" title="Eric G. Huang 不像樣工程師" href="http://justericgg.com/feed.xml" />
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <!--[if IE 8]><link rel="stylesheet" href="/assets/css/ie.css"><![endif]-->
+    <link rel="canonical" href="http://justericgg.com/blog/php-cookies-n-sessions/">
+
+    <!-- Modernizr -->
+    <script src="/assets/js/modernizr.custom.15390.js" type="text/javascript"></script>
+
+     <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
+<script>
+   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', '', 'auto');
+ga('send', 'pageview');
+
+</script>
+ 
+</head>
+
+
+<body>
+
+    <div class="header">
+     <div class="container">
+         <h1 class="logo"><a href="/">Eric G. Huang 不像樣工程師</a></h1>
+         <nav class="nav-collapse">
+             <ul class="noList">
+                 
+                 <li class="element first  ">
+                     <a href="/index.html">Home</a>
+                 </li> 
+                 
+                 <li class="element   ">
+                     <a href="/about">About</a>
+                 </li> 
+                 
+                 <li class="element   last">
+                     <a href="/contact">Contact</a>
+                 </li> 
+                 
+                 <li> <a href="https://github.com/brianmaierjr/long-haul" target="_blank">GitHub</a></li>
+             </ul>
+         </nav>
+     </div>
+ </div><!-- end .header -->
+
+
+   <div class="content">
+      <div class="container">
+         <div class="post">
+  
+  <h1 class="postTitle">PHP - Cookies & Sessions</h1>
+  <p class="meta">May 24, 2016 | <span class="time">2</span> Minute Read</p>
+  
+  <p>工作上常常會因為開發的速度和功能需求而使用 Framework 以及各種 Libraries，用了 Framework 一陣子，也因為它的便利性，使得寫個會員登入系統就跟喝水一樣簡單，但卻造成很多人處在一種:
+<em>我會寫登入系統，但是我解釋不出 Cookie 與 Session 的差別與簡單的原理。</em>
+<!-- more -->
+並不是說用 Framework 不好，但若能打好根基的話，哪天在使用的 Framework 或 Libraries 出錯了，自己也有能力可以修正，甚至是可以對 Open Source 多一份貢獻，何樂而不為，所以今天寫這篇算是我對於 Cookie 與 Session 的一些了解，希望對有需要的人有些幫助。</p>
+
+<h1 id="cookie--session-">在聊什麼是 Cookie 跟 Session 之前</h1>
+<p>我們要先知道網頁的生命週期是短暫的，與桌面或是手機應用程式非常的不一樣，使用者點擊了一個頁面，發出了一個請求給伺服端，接著伺服端回應相關資訊給使用者，這個頁面的生命週期就結束了，你可以在伺服器給你的回應頁面繼續點擊一個連結到下一個頁面，接著又是一個新的生命週期。</p>
+
+<p>我們可以說對於網頁本身來說是無狀態的，這造成一個問題，也就是若不同的頁面需要紀錄一些使用者資訊的時候該怎麼做呢？因此需要 Cookie 以及 Session 來幫助我們紀錄一些使用者的資訊，例如不同的頁面怎麼知道登入的使用者是同一個人。</p>
+
+<h1 id="cookie">什麼是 Cookie</h1>
+<p>Cookie 是儲存於瀏覽器端的一小段文字，常被應用的情境有以下幾個:
+* 使用者登入狀態
+* 使用者在網站的偏好設定
+* 購物車資訊
+* Session ID (後面解釋 Session 會提到)</p>
+
+<p><strong>小提醒: 因為 Cookie 是存放在瀏覽器端的，所以就安全性上來說，千萬不要把一些敏感性的資料放到 Cookie 裡，如果有一個網站把你的信用卡號的資訊都放在 Cookie 裡，你還敢去這個網站嗎？</strong></p>
+
+<h1 id="cookie-">Cookie 的限制</h1>
+<ul>
+  <li>至少能儲存 300 個 Cookies</li>
+  <li>每個 Cookie 所能存放的大小為 4096 Bytes</li>
+  <li>每個網域至少可以儲存 20 個 Cookies，若儲存超過限制大小瀏覽器會捨棄最舊的 Cookie。</li>
+</ul>
+
+<p>更多完整規範請參考 <a href="http://www.ietf.org/rfc/rfc2965.txt">RFC2965</a></p>
+
+<p><strong>小提醒: 由以上得知，Cookie 是有長度及數量限制的，所以不要因為它很方便就一直瘋狂的使用它。</strong></p>
+
+<h1 id="cookie--1">Cookie 設定參數</h1>
+<ul>
+  <li>Name: Cookie 的鍵值</li>
+  <li>Value: Cookie 的內容</li>
+  <li>Domain: 可存取的網域
+  可以設定為子網域以達到 SSO (Single Sign On) 的功能</li>
+  <li>Path: 該網域下可存取的路徑</li>
+  <li>Expires: 過期時間</li>
+  <li>Secure: 只能透過 Https 傳遞</li>
+  <li>HttpOnly: 無法透過 Javascript 取得
+  這是個非常重要的參數，防止有心人士利用釣魚的方式竊取使用者的 Cookie 資訊</li>
+</ul>
+
+<h1 id="php-cookie-">PHP Cookie 操作</h1>
+<p>以下的範例為在 PHP 中設定 Cookie 的方式。</p>
+
+<h2 id="cookie-1">設定 Cookie</h2>
+<div class="language-php highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?php</span>
+
+<span class="nv">$expires</span> <span class="o">=</span> <span class="nb">time</span><span class="p">()</span> <span class="o">+</span> <span class="mi">86400</span><span class="p">;</span> <span class="c1">//目前的 timestamp + 秒數
+</span><span class="nv">$path</span> <span class="o">=</span> <span class="s2">"/"</span><span class="p">;</span> <span class="c1">//根目錄，整個網站都能使用，預設會是網頁當下的目錄
+</span><span class="nv">$domain</span> <span class="o">=</span> <span class="s2">""</span><span class="p">;</span> <span class="c1">//目前的 domain，只可設定為子網域，不可設定成其他網域
+</span><span class="nv">$secure</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+<span class="nv">$httpOnly</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span> <span class="c1">//無法使用 Javascript 取得 Cookie，防止有心人士釣魚取得
+</span>
+<span class="nv">$name</span> <span class="o">=</span> <span class="s2">"name"</span><span class="p">;</span>
+<span class="nv">$value</span> <span class="o">=</span> <span class="s2">"Eric"</span><span class="p">;</span>
+
+<span class="nb">setcookie</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$value</span><span class="p">,</span> <span class="nv">$expires</span><span class="p">,</span> <span class="nv">$path</span><span class="p">,</span> <span class="nv">$domain</span><span class="p">,</span> <span class="nv">$secure</span><span class="p">,</span> <span class="nv">$httpOnly</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="nb">isset</span><span class="p">(</span><span class="nv">$_COOKIE</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]))</span> <span class="p">{</span>
+	<span class="k">echo</span> <span class="nv">$_COOKIE</span><span class="p">[</span><span class="s2">"name"</span><span class="p">];</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+	<span class="k">echo</span> <span class="s2">"Can't find name."</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<p>設定時以 setcookie function 來設定 Cookie 資訊，取出的話則是直接用 $_COOKIE 指定 key 值來取得剛剛設定的資料。</p>
+
+<p>聰明的你一定會覺得很奇怪，剛剛不是說 Cookie 是存在瀏覽器端的嗎？ 那我們怎麼可以從位於伺服器端的 PHP 來設定使用者瀏覽器的資料呢？ 所以上面的程式在第一次執行的時候會顯示 “Can’t find name.”，重新整理一次頁面才會顯示 $_COOKIE[“name”] 裡的內容，讓我們看下去…</p>
+
+<h2 id="php--cookie-">PHP 設定 Cookie 流程</h2>
+<p><img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/php_set_cookie_seq.jpg" /></p>
+
+<p>以上的流程解釋了第一次執行的時候 PHP 並沒有抓到 $_COOKIE[“name”] 的原因，依照流程解釋如下。</p>
+
+<ol>
+  <li>
+    <p>使用者由瀏覽器送出第一個 Http Request</p>
+
+    <p>此時因為瀏覽器還沒有任何的 Cookie 資料，所以在 Http Request 的 header 不會帶入 Cookie 的資訊給伺服器端，$_COOKIE 也就取不到任何的資料。
+<img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528002.jpg" /></p>
+  </li>
+  <li>
+    <p>伺服器端回傳 Http Response</p>
+
+    <p>伺服器端 PHP 設定 Cookie 後會在 Response Headers 加入 Set-Cookie 參數，告知瀏覽器要存入使用者 Cookie。
+<img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528003.jpg" /></p>
+  </li>
+  <li>瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie</li>
+  <li>
+    <p>送出 第二個 Http Request</p>
+
+    <p>這次因為瀏覽器有使用者的 Cookie 資訊了，所以會將這些資訊整理到 Http request headers 中的 Cookie 參數裡，讓伺服器端可以知道有哪些 Cookie 可以使用，以 PHP 來說就是 $_COOKIE 裡的資料。
+<img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528004.jpg" /></p>
+  </li>
+  <li>伺服器端回傳 Http Response
+ 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。</li>
+</ol>
+
+<h1 id="session">什麼是 Session</h1>
+<p>Session 是伺服器端用於儲存資料的一個機制，PHP 預設的方式是以檔案為儲存方式，我們當然也可以將 Session 設定存儲到其他如 MySQL 或 Memcache 等其他儲存方式。</p>
+
+<p>每個 Session 都有一個獨一無二的 Session ID，瀏覽器只要將這個 Session ID 傳遞給伺服器，伺服器就可以依據這個 Session ID 找到相對應的儲存資料給程式做後續的處理，那瀏覽器怎麼將這個 Session ID 傳給伺服器呢，沒錯，就是我們前面所提到的 Cookie。</p>
+
+<p><strong>小提示: 很多書本提到關掉瀏覽器 Session 就會不見，其實這個說法只講對一半，其實是因為伺服端給瀏覽器的包含 Session ID 的 Cookie 的 expire 是一個特別的參數(session)，而這個 Cookie 在使用者重開瀏覽器後就會消失不見，也就沒有辦法傳送 Session ID 給伺服器，伺服器也就取不到該 Session ID 的資料了，但是位於伺服器的 Session 檔案並沒有馬上消失</strong>
+<img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528005.jpg" /></p>
+
+<h1 id="php-session-">PHP Session 操作</h1>
+<p>以下的範例為在 PHP 中設定 Session 的方式。</p>
+
+<h2 id="php-session--1">PHP Session 設定</h2>
+<div class="language-php highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?php</span>
+<span class="nb">session_start</span><span class="p">();</span>
+<span class="nv">$_SESSION</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"Eric"</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$_SESSION</span><span class="p">[</span><span class="s2">"name"</span><span class="p">];</span>
+</code></pre>
+</div>
+<p>這裡就不會有剛剛 Cookie 的問題，第一次就會有印東西出來了。</p>
+
+<p>#安全性
+因為 Cookie 的數量、大小以及是存放在瀏覽器端，所以只適合用來存放不是那麼重要的資料，所以對於安全性的比較來說，使用 Session 是相對安全的，所有真正的資料都是在 Server 端，瀏覽器只有一個用於識別的 Session ID，考慮到未來若有可能做負載平衡的情況下，將 Session 資料存放到 Cache 機制會比在單台主機以檔案儲存的方式要好上許多。</p>
+
+<p>#結語
+想起第一份工作時，就是因為把太多資訊紀錄在 Cookie 內，也沒有考慮到 Cookie 有大小限制這種事而造成部分使用者無法正常使用網站，讓自己陷入一個很大的麻煩中，所以啊! 基礎知識真的是非常的重要啊! 希望今天寫下這些，可以幫助到一些不喜歡踩雷的人(有人喜歡的嗎…)，今天就先到這嚕，再來想想要寫些什麼 @.@</p>
+
+
+
+  <!-- POST NAVIGATION -->
+  <div class="postNav clearfix">
+     
+      <a class="prev" href="/blog/phpstorm-phalcon-auto-completion/"><span>&laquo;&nbsp;PhpStorm Phalcon Auto Completion (自動補全)</span>
+      
+    </a>
+      
+     
+  </div>
+</div>
+
+      </div>
+   </div><!-- end .content -->
+
+   <div class="footer">
+   <div class="container">
+      <p class="copy">&copy; 2016 <a href="http://brianmaierjr.com">Brian Maier Jr.</a> Powered by <a href="http://jekyllrb.com">Jekyll</a></p>
+
+      <div class="footer-links"> 
+         <ul class="noList"> 
+            
+            
+            
+            <li><a href="https://github.com/justericgg">
+                  <svg id="github" class="custom-icon" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" style="height: 30px; width: 30px;"><circle class="outer-shape" cx="50" cy="50" r="48" style="opacity: 1;"></circle>
+                  <path class="inner-shape" style="opacity: 1;" transform="translate(25,25) scale(0.5)" d="M50,1C22.938,1,1,22.938,1,50s21.938,49,49,49s49-21.938,49-49S77.062,1,50,1z M79.099,79.099 c-3.782,3.782-8.184,6.75-13.083,8.823c-1.245,0.526-2.509,0.989-3.79,1.387v-7.344c0-3.86-1.324-6.699-3.972-8.517 c1.659-0.16,3.182-0.383,4.57-0.67c1.388-0.287,2.855-0.702,4.402-1.245c1.547-0.543,2.935-1.189,4.163-1.938 c1.228-0.75,2.409-1.723,3.541-2.919s2.082-2.552,2.847-4.067s1.372-3.334,1.818-5.455c0.446-2.121,0.67-4.458,0.67-7.01 c0-4.945-1.611-9.155-4.833-12.633c1.467-3.828,1.308-7.991-0.478-12.489l-1.197-0.143c-0.829-0.096-2.321,0.255-4.474,1.053 c-2.153,0.798-4.57,2.105-7.249,3.924c-3.797-1.053-7.736-1.579-11.82-1.579c-4.115,0-8.039,0.526-11.772,1.579 c-1.69-1.149-3.294-2.097-4.809-2.847c-1.515-0.75-2.727-1.26-3.637-1.532c-0.909-0.271-1.754-0.439-2.536-0.503 c-0.782-0.064-1.284-0.079-1.507-0.048c-0.223,0.031-0.383,0.064-0.478,0.096c-1.787,4.53-1.946,8.694-0.478,12.489 c-3.222,3.477-4.833,7.688-4.833,12.633c0,2.552,0.223,4.889,0.67,7.01c0.447,2.121,1.053,3.94,1.818,5.455 c0.765,1.515,1.715,2.871,2.847,4.067s2.313,2.169,3.541,2.919c1.228,0.751,2.616,1.396,4.163,1.938 c1.547,0.543,3.014,0.957,4.402,1.245c1.388,0.287,2.911,0.511,4.57,0.67c-2.616,1.787-3.924,4.626-3.924,8.517v7.487 c-1.445-0.43-2.869-0.938-4.268-1.53c-4.899-2.073-9.301-5.041-13.083-8.823c-3.782-3.782-6.75-8.184-8.823-13.083 C9.934,60.948,8.847,55.56,8.847,50s1.087-10.948,3.231-16.016c2.073-4.899,5.041-9.301,8.823-13.083s8.184-6.75,13.083-8.823 C39.052,9.934,44.44,8.847,50,8.847s10.948,1.087,16.016,3.231c4.9,2.073,9.301,5.041,13.083,8.823 c3.782,3.782,6.75,8.184,8.823,13.083c2.143,5.069,3.23,10.457,3.23,16.016s-1.087,10.948-3.231,16.016 C85.848,70.915,82.88,75.317,79.099,79.099L79.099,79.099z"></path>
+                  </svg>
+            </a></li>
+             
+            
+            <li><a href="mailto:eric.g.yuan@gmail.com">
+                  <svg id="mail" class="custom-icon" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" style="height: 30px; width: 30px;"><circle class="outer-shape" cx="50" cy="50" r="48" style="opacity: 1;"></circle>
+                  <path class="inner-shape" style="opacity: 1;" transform="translate(25,25) scale(0.5)" d="M50,1C22.938,1,1,22.938,1,50s21.938,49,49,49s49-21.938,49-49S77.062,1,50,1z M25.5,25.5h49 c0.874,0,1.723,0.188,2.502,0.542L50,57.544L22.998,26.041C23.777,25.687,24.626,25.499,25.5,25.5L25.5,25.5z M19.375,68.375v-36.75 c0-0.128,0.005-0.256,0.014-0.383l17.96,20.953L19.587,69.958C19.448,69.447,19.376,68.916,19.375,68.375L19.375,68.375z M74.5,74.5 h-49c-0.541,0-1.072-0.073-1.583-0.212l17.429-17.429L50,66.956l8.653-10.096l17.429,17.429C75.572,74.427,75.041,74.5,74.5,74.5 L74.5,74.5z M80.625,68.375c0,0.541-0.073,1.072-0.211,1.583L62.652,52.195l17.96-20.953c0.008,0.127,0.014,0.255,0.014,0.383 L80.625,68.375L80.625,68.375z"></path>
+                  </svg>
+            </a></li>
+            
+         </ul>
+      </div>
+   </div>
+</div><!-- end .footer -->
+
+
+   <!-- Add jQuery and other scripts -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script>window.jQuery || document.write('<script src=""><\/script>')</script>
+<script src="/assets/js/dropcap.min.js"></script>
+<script src="/assets/js/responsive-nav.min.js"></script>
+<script src="/assets/js/scripts.js"></script>
+
+
+</body>
+
+</html>

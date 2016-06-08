@@ -1,0 +1,771 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Eric G. Huang 不像樣工程師</title>
+    <description></description>
+    <link>http://justericgg.com/</link>
+    <atom:link href="http://justericgg.com/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Wed, 08 Jun 2016 22:38:59 +0800</pubDate>
+    <lastBuildDate>Wed, 08 Jun 2016 22:38:59 +0800</lastBuildDate>
+    <generator>Jekyll v3.1.6</generator>
+    
+      
+      <item>
+        <title>PHP - Cookies &amp; Sessions</title>
+        <description>&lt;p&gt;工作上常常會因為開發的速度和功能需求而使用 Framework 以及各種 Libraries，用了 Framework 一陣子，也因為它的便利性，使得寫個會員登入系統就跟喝水一樣簡單，但卻造成很多人處在一種:
+&lt;em&gt;我會寫登入系統，但是我解釋不出 Cookie 與 Session 的差別與簡單的原理。&lt;/em&gt;
+&lt;!-- more --&gt;
+並不是說用 Framework 不好，但若能打好根基的話，哪天在使用的 Framework 或 Libraries 出錯了，自己也有能力可以修正，甚至是可以對 Open Source 多一份貢獻，何樂而不為，所以今天寫這篇算是我對於 Cookie 與 Session 的一些了解，希望對有需要的人有些幫助。&lt;/p&gt;
+
+&lt;h1 id=&quot;cookie--session-&quot;&gt;在聊什麼是 Cookie 跟 Session 之前&lt;/h1&gt;
+&lt;p&gt;我們要先知道網頁的生命週期是短暫的，與桌面或是手機應用程式非常的不一樣，使用者點擊了一個頁面，發出了一個請求給伺服端，接著伺服端回應相關資訊給使用者，這個頁面的生命週期就結束了，你可以在伺服器給你的回應頁面繼續點擊一個連結到下一個頁面，接著又是一個新的生命週期。&lt;/p&gt;
+
+&lt;p&gt;我們可以說對於網頁本身來說是無狀態的，這造成一個問題，也就是若不同的頁面需要紀錄一些使用者資訊的時候該怎麼做呢？因此需要 Cookie 以及 Session 來幫助我們紀錄一些使用者的資訊，例如不同的頁面怎麼知道登入的使用者是同一個人。&lt;/p&gt;
+
+&lt;h1 id=&quot;cookie&quot;&gt;什麼是 Cookie&lt;/h1&gt;
+&lt;p&gt;Cookie 是儲存於瀏覽器端的一小段文字，常被應用的情境有以下幾個:
+* 使用者登入狀態
+* 使用者在網站的偏好設定
+* 購物車資訊
+* Session ID (後面解釋 Session 會提到)&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;小提醒: 因為 Cookie 是存放在瀏覽器端的，所以就安全性上來說，千萬不要把一些敏感性的資料放到 Cookie 裡，如果有一個網站把你的信用卡號的資訊都放在 Cookie 裡，你還敢去這個網站嗎？&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;cookie-&quot;&gt;Cookie 的限制&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;至少能儲存 300 個 Cookies&lt;/li&gt;
+  &lt;li&gt;每個 Cookie 所能存放的大小為 4096 Bytes&lt;/li&gt;
+  &lt;li&gt;每個網域至少可以儲存 20 個 Cookies，若儲存超過限制大小瀏覽器會捨棄最舊的 Cookie。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;更多完整規範請參考 &lt;a href=&quot;http://www.ietf.org/rfc/rfc2965.txt&quot;&gt;RFC2965&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;小提醒: 由以上得知，Cookie 是有長度及數量限制的，所以不要因為它很方便就一直瘋狂的使用它。&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;cookie--1&quot;&gt;Cookie 設定參數&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;Name: Cookie 的鍵值&lt;/li&gt;
+  &lt;li&gt;Value: Cookie 的內容&lt;/li&gt;
+  &lt;li&gt;Domain: 可存取的網域
+  可以設定為子網域以達到 SSO (Single Sign On) 的功能&lt;/li&gt;
+  &lt;li&gt;Path: 該網域下可存取的路徑&lt;/li&gt;
+  &lt;li&gt;Expires: 過期時間&lt;/li&gt;
+  &lt;li&gt;Secure: 只能透過 Https 傳遞&lt;/li&gt;
+  &lt;li&gt;HttpOnly: 無法透過 Javascript 取得
+  這是個非常重要的參數，防止有心人士利用釣魚的方式竊取使用者的 Cookie 資訊&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&quot;php-cookie-&quot;&gt;PHP Cookie 操作&lt;/h1&gt;
+&lt;p&gt;以下的範例為在 PHP 中設定 Cookie 的方式。&lt;/p&gt;
+
+&lt;h2 id=&quot;cookie-1&quot;&gt;設定 Cookie&lt;/h2&gt;
+&lt;div class=&quot;language-php highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$expires&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;86400&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;//目前的 timestamp + 秒數
+&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$path&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;//根目錄，整個網站都能使用，預設會是網頁當下的目錄
+&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$domain&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;//目前的 domain，只可設定為子網域，不可設定成其他網域
+&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$secure&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;false&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$httpOnly&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;true&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;//無法使用 Javascript 取得 Cookie，防止有心人士釣魚取得
+&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$value&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Eric&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;setcookie&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$value&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$expires&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$domain&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$secure&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$httpOnly&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;isset&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$_COOKIE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$_COOKIE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Can&#39;t find name.&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;設定時以 setcookie function 來設定 Cookie 資訊，取出的話則是直接用 $_COOKIE 指定 key 值來取得剛剛設定的資料。&lt;/p&gt;
+
+&lt;p&gt;聰明的你一定會覺得很奇怪，剛剛不是說 Cookie 是存在瀏覽器端的嗎？ 那我們怎麼可以從位於伺服器端的 PHP 來設定使用者瀏覽器的資料呢？ 所以上面的程式在第一次執行的時候會顯示 “Can’t find name.”，重新整理一次頁面才會顯示 $_COOKIE[“name”] 裡的內容，讓我們看下去…&lt;/p&gt;
+
+&lt;h2 id=&quot;php--cookie-&quot;&gt;PHP 設定 Cookie 流程&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/php_set_cookie_seq.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;以上的流程解釋了第一次執行的時候 PHP 並沒有抓到 $_COOKIE[“name”] 的原因，依照流程解釋如下。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;使用者由瀏覽器送出第一個 Http Request&lt;/p&gt;
+
+    &lt;p&gt;此時因為瀏覽器還沒有任何的 Cookie 資料，所以在 Http Request 的 header 不會帶入 Cookie 的資訊給伺服器端，$_COOKIE 也就取不到任何的資料。
+&lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528002.jpg&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;伺服器端回傳 Http Response&lt;/p&gt;
+
+    &lt;p&gt;伺服器端 PHP 設定 Cookie 後會在 Response Headers 加入 Set-Cookie 參數，告知瀏覽器要存入使用者 Cookie。
+&lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528003.jpg&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie&lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;送出 第二個 Http Request&lt;/p&gt;
+
+    &lt;p&gt;這次因為瀏覽器有使用者的 Cookie 資訊了，所以會將這些資訊整理到 Http request headers 中的 Cookie 參數裡，讓伺服器端可以知道有哪些 Cookie 可以使用，以 PHP 來說就是 $_COOKIE 裡的資料。
+&lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528004.jpg&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;伺服器端回傳 Http Response
+ 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h1 id=&quot;session&quot;&gt;什麼是 Session&lt;/h1&gt;
+&lt;p&gt;Session 是伺服器端用於儲存資料的一個機制，PHP 預設的方式是以檔案為儲存方式，我們當然也可以將 Session 設定存儲到其他如 MySQL 或 Memcache 等其他儲存方式。&lt;/p&gt;
+
+&lt;p&gt;每個 Session 都有一個獨一無二的 Session ID，瀏覽器只要將這個 Session ID 傳遞給伺服器，伺服器就可以依據這個 Session ID 找到相對應的儲存資料給程式做後續的處理，那瀏覽器怎麼將這個 Session ID 傳給伺服器呢，沒錯，就是我們前面所提到的 Cookie。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;小提示: 很多書本提到關掉瀏覽器 Session 就會不見，其實這個說法只講對一半，其實是因為伺服端給瀏覽器的包含 Session ID 的 Cookie 的 expire 是一個特別的參數(session)，而這個 Cookie 在使用者重開瀏覽器後就會消失不見，也就沒有辦法傳送 Session ID 給伺服器，伺服器也就取不到該 Session ID 的資料了，但是位於伺服器的 Session 檔案並沒有馬上消失&lt;/strong&gt;
+&lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528005.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;php-session-&quot;&gt;PHP Session 操作&lt;/h1&gt;
+&lt;p&gt;以下的範例為在 PHP 中設定 Session 的方式。&lt;/p&gt;
+
+&lt;h2 id=&quot;php-session--1&quot;&gt;PHP Session 設定&lt;/h2&gt;
+&lt;div class=&quot;language-php highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;session_start&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$_SESSION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Eric&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$_SESSION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;這裡就不會有剛剛 Cookie 的問題，第一次就會有印東西出來了。&lt;/p&gt;
+
+&lt;p&gt;#安全性
+因為 Cookie 的數量、大小以及是存放在瀏覽器端，所以只適合用來存放不是那麼重要的資料，所以對於安全性的比較來說，使用 Session 是相對安全的，所有真正的資料都是在 Server 端，瀏覽器只有一個用於識別的 Session ID，考慮到未來若有可能做負載平衡的情況下，將 Session 資料存放到 Cache 機制會比在單台主機以檔案儲存的方式要好上許多。&lt;/p&gt;
+
+&lt;p&gt;#結語
+想起第一份工作時，就是因為把太多資訊紀錄在 Cookie 內，也沒有考慮到 Cookie 有大小限制這種事而造成部分使用者無法正常使用網站，讓自己陷入一個很大的麻煩中，所以啊! 基礎知識真的是非常的重要啊! 希望今天寫下這些，可以幫助到一些不喜歡踩雷的人(有人喜歡的嗎…)，今天就先到這嚕，再來想想要寫些什麼 @.@&lt;/p&gt;
+
+</description>
+        
+          <description>&lt;p&gt;工作上常常會因為開發的速度和功能需求而使用 Framework 以及各種 Libraries，用了 Framework 一陣子，也因為它的便利性，使得寫個會員登入系統就跟喝水一樣簡單，但卻造成很多人處在一種:
+&lt;em&gt;我會寫登入系統，但是我解釋不出 Cookie 與 Session 的差別與簡單的原理。&lt;/em&gt;
+&lt;!-- more --&gt;
+並不是說用 Framework 不好，但若能打好根基的話，哪天在使用的 Framework 或 Libraries 出錯了，自己也有能力可以修正，甚至是可以對 Open Source 多一份貢獻，何樂而不為，所以今天寫這篇算是我對於 Cookie 與 Session 的一些了解，希望對有需要的人有些幫助。&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Tue, 24 May 2016 00:28:58 +0800</pubDate>
+        <link>http://justericgg.com/blog/php-cookies-n-sessions/</link>
+        <guid isPermaLink="true">http://justericgg.com/blog/php-cookies-n-sessions/</guid>
+        
+        
+        <category>php</category>
+        
+      </item>
+      
+    
+      
+      <item>
+        <title>PhpStorm Phalcon Auto Completion (自動補全)</title>
+        <description>&lt;p&gt;今天要來說一下，如何在 PhpStorm 裡讓 Phalcon 可以自動補全，加快我們的開發速度&lt;/p&gt;
+
+&lt;!-- more --&gt;
+&lt;p&gt;## 下載 Phalcon developer tools
+至 github 的 &lt;a href=&quot;https://github.com/phalcon/phalcon-devtools&quot;&gt;Phalcon Developer Tools 專案&lt;/a&gt; 下載專案 (直接下載 zip 解壓 或是 clone 下來都可以)&lt;/p&gt;
+
+&lt;h2 id=&quot;phalcon--phpstorm-external-libraries-&quot;&gt;指定 Phalcon 版本到 PhpStorm External Libraries 設定中&lt;/h2&gt;
+&lt;p&gt;Step1: 在右邊 project 工作窗的 External Libraries 上，點擊右鍵選擇 Configure php include paths …
+&lt;img src=&quot;/assets/img/posts/2016-03-06-phpstorm-phalcon-auto-completion/no1.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step2: 設定 phalcon 位於的目錄 (剛剛在 github 下載目錄底下的 ide 目錄，可對應到不同的 Phalcon 版本)&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-06-phpstorm-phalcon-auto-completion/no2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;可以開心的自補補全嚕!!!&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-06-phpstorm-phalcon-auto-completion/no3.jpg&quot; /&gt;&lt;/p&gt;
+
+</description>
+        
+          <description>&lt;p&gt;今天要來說一下，如何在 PhpStorm 裡讓 Phalcon 可以自動補全，加快我們的開發速度&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sun, 06 Mar 2016 00:00:00 +0800</pubDate>
+        <link>http://justericgg.com/blog/phpstorm-phalcon-auto-completion/</link>
+        <guid isPermaLink="true">http://justericgg.com/blog/phpstorm-phalcon-auto-completion/</guid>
+        
+        
+        <category>php</category>
+        
+      </item>
+      
+    
+      
+      <item>
+        <title>PhpStorm PHPUnit 設定教學</title>
+        <description>&lt;p&gt;怕下次忘記，所以在這邊留個記錄，順便幫忙有需要的人
+IDE 版本: PHPStorm 10&lt;/p&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;安裝與設定步驟&lt;/h2&gt;
+
+&lt;p&gt;Step1:
+到 PHPUNIT 網站下載 &lt;a href=&quot;https://phar.phpunit.de/phpunit.phar&quot;&gt;phpunit.phar&lt;/a&gt; 檔 (我習慣另外抓 phar 檔方便更新)
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step2:
+至 Preferences -&amp;gt; Languages &amp;amp; Frameworks -&amp;gt; PHP -&amp;gt; PHPUnit 選擇 Path to phpunit.phar
+並指定 phpunit.phar 檔案位置
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step3:
+至 Run -&amp;gt; Edit Configurations… 新增一個 PHPUnit 設定，選擇 Defined in the configuration file
+並指定 phpunit.xml 檔案位置 (config 名稱這邊暫時設定為 phpunit.xml，你想要叫它什麼都可以)
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;phpunitxml&quot;&gt;專案結構 &amp;amp; phpunit.xml檔案說明&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;檔案結構:
+  ci/ -&amp;gt; 放置&lt;a href=&quot;https://en.wikipedia.org/wiki/Continuous_integration&quot;&gt;CI&lt;/a&gt;設定檔案
+  ci/build/ -&amp;gt; 測試產出覆蓋率等相關檔案
+  src/ -&amp;gt; 主要程式位置
+  tests/ -&amp;gt; 測試檔案位置&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;phpunit.xml 說明:&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;實際跑一下測試吧!&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;src/Calculator.php&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;tests/CalculatorTest.php&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Run -&amp;gt; Run ‘phpunit.xml’&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;class-&quot;&gt;只想跑一個 class 的測試時…&lt;/h2&gt;
+&lt;p&gt;目前我們跑測試時是由 phpunit.xml file 來執行，當然也可以在 PhpStorm 裡只單一執行某一個 class 的測試，
+不過目前的 phpunit.xml 有預先載入一個 bootstrap.php 的檔案，因此若不透過 phpunit.xml 來執行測試的時候
+必須要先在 PhpStorm 設定預設要載入的檔案&lt;/p&gt;
+
+&lt;p&gt;設定方法:
+至 Preferences -&amp;gt; Languages &amp;amp; Frameworks -&amp;gt; PHP -&amp;gt; PHPUnit 勾選底下的 Default bootstrap file
+並指定同 phpunit.xml 內 bootstrap.php 檔案位置
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no8.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;接著就可以直接在 Test class 內點選 右選執行啦 !!!
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no9.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;auto-completion--ide--auto-completion--&quot;&gt;設定 Auto Completion (用 IDE 就是要 auto completion 呀 !!!)&lt;/h2&gt;
+
+&lt;p&gt;在右邊 project 工作窗的 External Libraries 上，點擊右鍵選擇 Configure php include paths …
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no10.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;接著設定 phpunit.phar 位於的目錄
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no11.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;現在可以開心的 Auto Complete 了 (舒服~~~)
+&lt;img src=&quot;/assets/img/posts/2016-03-01-phpstorm-phpunit-setting-tuts/no12.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        
+          <description>&lt;p&gt;怕下次忘記，所以在這邊留個記錄，順便幫忙有需要的人
+IDE 版本: PHPStorm 10&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sun, 17 May 2015 00:00:00 +0800</pubDate>
+        <link>http://justericgg.com/blog/phpstorm-phpunit-setting-tuts/</link>
+        <guid isPermaLink="true">http://justericgg.com/blog/phpstorm-phpunit-setting-tuts/</guid>
+        
+        
+        <category>php</category>
+        
+      </item>
+      
+    
+      
+      <item>
+        <title>與PHP之父Rasmus Lerdorf 見面心得</title>
+        <description>&lt;p&gt;今日有幸參加Web開發語言大師見面會 - PHP 之父，非常感謝主辦單位: iThome、WebConf
+讓來不及參加今年 Webconf 的小弟還有機會可以看到 PHP 之父 Rasmus Lerdorf。&lt;/p&gt;
+
+&lt;p&gt;將比較有感覺的問答分享給大家，有興趣的朋友可以看看。
+(小弟英文不好，無法完完整整將大師所說的每一字每一句記下，只能將聽懂與自己理解的寫出來，還請見諒)&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Q1: 對於時下流行之 PHP Frameworks 的看法 ?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Rasmus Lerdorf:
+	不贊同只為了一小部分功能而包含整個 framework 這對於效能的影響可想而知，目前有許多 framework 使用 composer 做為套件管理 (like laravel, etc) 可以選擇那些你真正需要的部分來使用。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Q2: 面對許多對於 PHP 的批評如何看待 ?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Rasmus Lerdorf:
+	PHP 的目標之一是使人們可以快速、簡單的將自己的想法實現，想像一下如果這世上只有工程師有能力將內容建置於網站上，這將會多可怕，有非常多的人有很多很棒的點子將無法輕易的實現於網站上，因為他們並不善於寫程式。我們應該更致力於解決問題本身，而不是過度專注於工具本身。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Q3: 對於 PHP 無法指定回傳型別是否影響到團隊之間合作上困難的問題 ?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Rasmus Lerdorf:
+	明確的文件將非常有幫助，即使是強型別的語言也需要文件說明，舉例來說一個 method 將回傳一組 json 字串，即便指定了回傳型別(string)，你還是無法明確的知道內容應該有些什麼，明確的文件將解決這一類問題。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Q4: 關於 function 名稱不一致的問題 ?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Rasmus Lerdorf:
+	以平行的方式來看待這些命名，它的確是不一致，若以垂直的角度來看待這些 function 名稱都來自於 C，名稱也與 C 一致。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Q5: 對於正在學習 PHP 的新手來說是否有什麼建議 ?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Rasmus Lerdorf:
+	試著先想要解決的問題是什麼從而學習，或是從已經有的專案或任何open source 中試著改變內容，多做多想，Don’t just be a programmer&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;結論:&lt;/strong&gt;
+	比起聽到些新版本的功能，更讓我有感覺的是大師對於事物的看法，小弟曾經對於這些對於 PHP 的批評很困惑，大師的看法讓我覺得看事情應該從它的根源、目的以及更寬廣的角度去看待這一切。&lt;/p&gt;
+
+&lt;p&gt;PS.
+大師這次主要重點在 PHP 7 (性能提高100%)，可以到以下的 github 試試看新版本有些什麼不一樣 ^.^
+https://github.com/rlerdorf/php7dev&lt;/p&gt;
+
+&lt;p&gt;PS. 的 PS.
+$foo = $a ?? $bar;
+真的是有夠方便的新的 feature 就像是 javascript 中的 var foo = a || bar;&lt;/p&gt;
+</description>
+        
+          <description>&lt;p&gt;今日有幸參加Web開發語言大師見面會 - PHP 之父，非常感謝主辦單位: iThome、WebConf
+讓來不及參加今年 Webconf 的小弟還有機會可以看到 PHP 之父 Rasmus Lerdorf。&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sun, 17 May 2015 00:00:00 +0800</pubDate>
+        <link>http://justericgg.com/blog/experience-met-the-father-of-php-rasmus-lerdorf/</link>
+        <guid isPermaLink="true">http://justericgg.com/blog/experience-met-the-father-of-php-rasmus-lerdorf/</guid>
+        
+        
+        <category>php</category>
+        
+      </item>
+      
+    
+      
+      <item>
+        <title>PHP - Autoload</title>
+        <description>&lt;p&gt;Okay，我們可以透過 &lt;code class=&quot;highlighter-rouge&quot;&gt;include&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;include_once&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;require&lt;/code&gt; 或是 &lt;code class=&quot;highlighter-rouge&quot;&gt;require_once&lt;/code&gt; 來將檔案引入到我們目前正在編寫的這個檔案，我們也知道習慣上我們會將一個 Class 存放在單一的 PHP 檔案中，例如 Member.php 相對於 Member 這個 Class，當我們的程式需要用到這個 Class 的時候就可以用上述的方法來引用這個 Class 以供後續操作。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Member.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Member&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;getMemberList&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;完美!!! 但是如果今天我們有一卡車的 Classes 要引入呢？&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Member.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Mailsender.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Validate.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;inlcude_once&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Other.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;What the #$%^# … Okay! 夠了! 這看上去實在是不怎麼舒服，光這些引入就佔了一堆行數，我都還沒開始寫呢! 那有沒有辦法可以解決這個問題呢？有的 - Autoload !!!&lt;/p&gt;
+
+&lt;h1 id=&quot;php-autoload&quot;&gt;PHP Autoload&lt;/h1&gt;
+&lt;p&gt;PHP Autoload 機制可以讓我們能夠在需要這個物件的時候才去真正的引入這個 Class，這個動作就是常聽到的 Lazyload 延遲載入，在這裡我們不會談論實際上 PHP 怎麼去實現這個機制，只階段性的介紹 PHP 內幾種 Autoload 的做法。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;__autoload&lt;/li&gt;
+  &lt;li&gt;spl_autoload&lt;/li&gt;
+  &lt;li&gt;autoload 與 namespace&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&quot;autoload&quot;&gt;__autoload&lt;/h1&gt;
+&lt;p&gt;PHP5 提供了 &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 這個魔術方法實現上述 Autoload 機制，雖然這個方法效能上及方便性並不是非常理想(後續會提到其他做法)，讓我們來用這個方法實際寫點東西吧！&lt;/p&gt;
+
+&lt;p&gt;為了讓例子看起來比較簡單，我們將不會把資料夾分的太細，以下為我們的根目錄資料夾。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+ classes
++-- Member.php
+- autoload.php
+- index.php
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;首先我們看到 classes 資料夾底下的 Member.php。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//classes/Member.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Member&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;getMemberList&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;print member list...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;是的! 沒什麼特別的，我們在 classes 資料夾底下建立了一個 Member Class 包含了一個 public method &lt;code class=&quot;highlighter-rouge&quot;&gt;getMemberList()&lt;/code&gt; 簡單的輸出一串字串 print member list…&lt;/p&gt;
+
+&lt;p&gt;接著來到我們的重頭戲 autoload.php 這個檔案&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//autoload.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;__autoload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/classes/&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;is_readable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;在這個 function 內，我們首先取得存放 classes 路徑中的檔案名稱 &lt;code class=&quot;highlighter-rouge&quot;&gt;$filename&lt;/code&gt; 接著我們用到了 &lt;code class=&quot;highlighter-rouge&quot;&gt;is_readable()&lt;/code&gt; 這個 PHP 內建 function 判斷是檔案是否存在及可讀取，然後 require 引入這個檔案。聽起來棒極了，但是你沒有告訴我怎麼使用這個 &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 這個 function 啊!!! 別急，究竟要怎麼讓這個東西動起來，讓我們看下去…&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/autoload.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Member&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;getMemberList&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;我們將 autoload.php 引入到我們程式的最一開始，現在當需要使用在 classes 目錄底下(不包含子目錄)的所有 class 都將會自動被載入，你不需要在手動的引入你所需要的 class。&lt;/p&gt;
+
+&lt;p&gt;執行 index.php 會輸出一段文字 &lt;code class=&quot;highlighter-rouge&quot;&gt;print member list...&lt;/code&gt; 在你的 browser 上，太神奇了!!!&lt;/p&gt;
+
+&lt;p&gt;什麼!!! 有件事我忘了跟你說嗎？ 呃… &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 不能重覆的被定義，也就是說，當你嘗試引入兩支不一樣的 autoload.php (或許你有其他目錄底下的 class 也想被自動載入…) 的時候，PHP 將會報出錯誤訊息 &lt;code class=&quot;highlighter-rouge&quot;&gt;Fatal error: Cannot redeclare __autoload()...&lt;/code&gt;。&lt;/p&gt;
+
+&lt;p&gt;這樣子很不方便耶! 別急，PHP 當然知道要幫你解決這個問題，下一章節將說明。
+(你當然可以通過 php.ini 設定 include path 來解決這樣子的問題，不過這有點不明智就是了…)&lt;/p&gt;
+
+&lt;h1 id=&quot;splautoload--splautoloadregister&quot;&gt;spl_autoload 與 spl_autoload_register&lt;/h1&gt;
+
+&lt;p&gt;PHP 在 5.1.2 以後提供了 SPL 這個方便的大玩意，SPL 全名為 Standard PHP Library，顧名思義，提供你 許多 Interface 及 class，目的為解決常見的問題。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;spl_autoload
+預設實作 &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 魔術方法，也就是說，當 &lt;code class=&quot;highlighter-rouge&quot;&gt;spl_autoload_register()&lt;/code&gt; 沒有定義或是沒有帶任何參數的時候，預設會採用 &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 這個 function&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;spl_autoload_register
+&lt;code class=&quot;highlighter-rouge&quot;&gt;spl_autoload_register()&lt;/code&gt; 讓你能夠註冊你自定義的 autoload function，當 spl_autoload_register() 有註冊之後，&lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 將會失效，你必需自己手動將 &lt;code class=&quot;highlighter-rouge&quot;&gt;__autoload()&lt;/code&gt; 註冊，才能使用。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;廢話不多說，我們來寫點程式。&lt;/p&gt;
+
+&lt;p&gt;首先我們新增兩個目錄 first, second 在我們剛剛建立的目錄，同時也個新增兩個 class 在 first 和 second 底下。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+ classes
++-- Member.php
++ first
++-- First.php
++ second
++-- Second.php
+- autoload.php
+- index.php
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;讓我們來看一下 First.php 和 Second.php 的內容。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//first/First.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;First&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;I am first class...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//second/Second.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Second&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;I am second class...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;新增的這兩個 class 內容沒什麼特別的，各有一個 &lt;code class=&quot;highlighter-rouge&quot;&gt;doSomething()&lt;/code&gt; 的 method 分別輸出 &lt;code class=&quot;highlighter-rouge&quot;&gt;I am first class...&lt;/code&gt; 和 &lt;code class=&quot;highlighter-rouge&quot;&gt;I am second class...&lt;/code&gt;， 接著我們來修改一下我們 index.php。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;First&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Second&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;聰明的你一定會說，你把 autoload.php 的引入拿掉，這一定出錯的啊！ 沒錯，所以我們現在要來註冊我們自己定義的 autoload，我們在資料夾底下再新增兩個檔案 firstAutoload.php 和 secondAutoload.php。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+ classes
++-- Member.php
++ first
++-- First.php
++ second
++-- Second.php
+- firstAutoload.php
+- secondAutoload.php
+- autoload.php
+- index.php
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;接著我們來看看這兩個 autoload 裡寫了些什麼。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//firstAutoload.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;firstAutoload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/first/&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;is_readable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;spl_autoload_register&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;firstAutoload&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//secondAutoload.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;secondAutoload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/second/&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;is_readable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;spl_autoload_register&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;secondAutoload&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;我們定義了自己的 autoload function 之後就使用 &lt;code class=&quot;highlighter-rouge&quot;&gt;spl_autoload_register()&lt;/code&gt; 註冊這個 function 的名稱，接著我們在 index.php 裡把這兩個自定義的 autoload 檔案引入。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/firstAutoload.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/secondAutoload.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;First&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Second&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;完美的輸出像這樣子的畫面。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;I am first class...
+I am second class...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;眼尖的你一定發現了，我們這樣子每要加入一個目錄放 class 不就要多寫一個 autoload，而且還要引入這些檔案，那不就跟原來一樣，喔不對，還比原來麻煩。
+嗯，你說的沒錯，那我們用 foreach 來處理這樣的問題呢？&lt;/p&gt;
+
+&lt;p&gt;我們再新增一個檔案 allAutoload.php 在目錄底下，並看看內容寫了些什麼。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//allAutoload.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;allAutoload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$folders&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;array&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/first/&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/second/&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;foreach&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$folders&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$folder&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$folder&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;is_readable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;spl_autoload_register&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;allAutoload&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Okay，我們把我們想要自動載入的目錄都設定在一個 array 裡，接著我們 foreach 這個 array，裡面做的事其實就跟先前的一樣，接著我們用 &lt;code class=&quot;highlighter-rouge&quot;&gt;spl_autoload_register()&lt;/code&gt; 註冊這個 function 的名稱，我們來看一下 index.php 做了哪些改變。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/allAutoload.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;First&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$first&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Second&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$second&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;這次我們只需要引入一個 allAutoload.php 檔案了，我們又再一次完全的輸出了…
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+I am first class...
+I am second class...
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;看起來是不錯，不過聰明的你一定又發現了，這樣子我們每次要新增一個 class 目錄或是子目錄的時候，都要去更動我們的 autoload 檔案耶，這樣還是很麻煩呀！&lt;/p&gt;
+
+&lt;p&gt;沒關係，是 namespace 該出場的時候了。&lt;/p&gt;
+
+&lt;h1 id=&quot;autoload--namespace&quot;&gt;autoload 與 namespace&lt;/h1&gt;
+
+&lt;p&gt;PHP 5.3.0 以後提供了namespace (命名空間) 的功能解決了 class 名稱重覆定義造成衝突的問題，這問題很容易發生在你的 project 內有使用到其他第三方的程式庫的時候。而 &lt;a href=&quot;http://www.php-fig.org/&quot;&gt;PHP FIG&lt;/a&gt; 也在它所制定的 &lt;a href=&quot;http://www.php-fig.org/psr/psr-0/&quot;&gt;PSR-0&lt;/a&gt; 定義了依照 namespace 使用 autoload 的方法。&lt;/p&gt;
+
+&lt;p&gt;我們先來看一下 簡單的 namespace 使用方法。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//MyClass.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;namespace&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;MyNamespace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;MyClass&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;This is my class...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/MyClass.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$myClass&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;\MyNamespace\MyClass&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$myClass&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;在 MyClass.php 內，我們看到 &lt;code class=&quot;highlighter-rouge&quot;&gt;namespace MyNamespace;&lt;/code&gt; 定義了這個 class 的命名空間，也就是說當我們之後需要實例化這個 class 的時候，我們不能像這樣子實例化這個 class &lt;code class=&quot;highlighter-rouge&quot;&gt;new MyClass();&lt;/code&gt;，我們需要在 class 名稱前面加上命名空間，命名空間以 &lt;code class=&quot;highlighter-rouge&quot;&gt;\&lt;/code&gt; 做分隔，&lt;code class=&quot;highlighter-rouge&quot;&gt;new \MyNamespace\MyClass();&lt;/code&gt;，如同上面的 index.php 一樣，執行 index.php 完美的輸出…&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;This is my class...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;讓我們來依照 PSR-0 的 autoload 範例(出處: http://www.php-fig.org/psr/psr-0/)來寫我們的 autoload 吧！
+首先我們想要將我們的 class 全部整理到根目錄下的 classes 目錄的 MyNamespace 目錄底下，我們先來看一下我們的目錄結構。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+ classes
++-+ MyNamespace
+- autoload.php
+- index.php
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;當然，我們還沒有建立任何的 class 我們的 MyNmaespace 目錄底下，我們先來看一下 autoload.php 寫了些什麼。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//autoload.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;autoload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;ltrim&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;\\&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$namespace&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$lastNsPos&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;strrpos&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;\\&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$namespace&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;substr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$lastNsPos&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;substr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$lastNsPos&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;classes/&#39;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;str_replace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;\\&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;DIRECTORY_SEPARATOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$namespace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;DIRECTORY_SEPARATOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;str_replace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;_&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;DIRECTORY_SEPARATOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$className&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&#39;.php&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$fileName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;spl_autoload_register&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&#39;autoload&#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;autoload.php 會依照定義的 namespace 把 &lt;code class=&quot;highlighter-rouge&quot;&gt;\&lt;/code&gt; 替換成系統的目錄分隔符號(最後一個 &lt;code class=&quot;highlighter-rouge&quot;&gt;\&lt;/code&gt; 之後的 &lt;code class=&quot;highlighter-rouge&quot;&gt;_&lt;/code&gt; 也會被替換成系統目錄分隔符號)，找到相對應的 class 檔案並引入。我們只要在程式的一開始引入這支 autoload.php 檔案，就可以在不需要手動引入 class 的情況下任意的實例化 MyNamespace 目錄底下的 class 檔案並進行操作，讓我們實際在 MyNamespace 目錄底下建立一個 class 及 兩個子目錄各包含一個 class 檔案。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+ classes
++-+ MyNamespace
++-+-- MyClass.php
++-+-+ Member
++-+-+-- Member.php
++-+-+ Email
++-+-+-- Mailler.php
+- autoload.php
+- index.php
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//classes/MyNamespace/MyClass.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;namespace&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;MyNamespace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;MyClass&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;This is my class...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//classes/MyNamespace/Member/Member.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;namespace&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;MyNamespace\Member&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Member&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;getMemberList&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;This is member list...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//classes/MyNamespace/Email/Mailler.php
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;namespace&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;MyNamespace\Email&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Mailler&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;function&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;sendMail&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;send email...&amp;lt;br&amp;gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;值得注意的是當我們在建立一個新的 class 的時候，千萬記得將 class 的 namespace 定義到正確的目錄結構上，這樣子我們的 autoload 才能夠正確的辨認相對應的 class，我們來看看我們的 index.php 內容與執行的結果吧！&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-php&quot; data-lang=&quot;php&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//index.php
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;include_once&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;__DIR__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;/autoload.php&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$myClass&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;\MyNamespace\MyClass&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$myClass&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;doSomething&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;\MyNamespace\Member\Member&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$member&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;getMemberList&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;$mailler&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;\MyNamespace\Email\Mailler&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$mailler&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;sendMail&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;執行結果如下。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;This is my class...
+This is member list...
+send email...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;我們只引入了 autoload.php，之後只要是要實例化在 MyNamespace 目錄底下的 class 就都不用再手動引入了，未來想要增加新的 class 也不需要再去定義 array 或是 設定 php include path，如果覺得 &lt;code class=&quot;highlighter-rouge&quot;&gt;new \MyNamespace\Member\Member();&lt;/code&gt;這樣的宣告方式太冗長了，可以考慮使用 &lt;code class=&quot;highlighter-rouge&quot;&gt;use&lt;/code&gt; 這個 keyword，在  &lt;a href=&quot;http://www.php.net/manual/en/language.namespaces.importing.php&quot;&gt;Using namespaces: Aliasing/Importing&lt;/a&gt; 有詳細的用法。
+Okay，我想我們今天該告一段落了，如果覺得不想自己寫這些 autoload 的 function，有機會我會在寫一篇如何使用 &lt;a href=&quot;https://getcomposer.org/&quot;&gt;composer&lt;/a&gt; 套件管理中的 autoload 來更方便的管理你的 autoload，我們下次見^^&lt;/p&gt;
+
+</description>
+        
+          <description>&lt;p&gt;Okay，我們可以透過 &lt;code class=&quot;highlighter-rouge&quot;&gt;include&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;include_once&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;require&lt;/code&gt; 或是 &lt;code class=&quot;highlighter-rouge&quot;&gt;require_once&lt;/code&gt; 來將檔案引入到我們目前正在編寫的這個檔案，我們也知道習慣上我們會將一個 Class 存放在單一的 PHP 檔案中，例如 Member.php 相對於 Member 這個 Class，當我們的程式需要用到這個 Class 的時候就可以用上述的方法來引用這個 Class 以供後續操作。&lt;/p&gt;
+
+</description>
+        
+        <pubDate>Sat, 03 May 2014 00:00:00 +0800</pubDate>
+        <link>http://justericgg.com/blog/php-autoload/</link>
+        <guid isPermaLink="true">http://justericgg.com/blog/php-autoload/</guid>
+        
+        
+        <category>php</category>
+        
+      </item>
+      
+    
+  </channel>
+</rss>

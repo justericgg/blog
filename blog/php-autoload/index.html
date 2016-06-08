@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]><html class="no-js lt-ie9 lt-ie8 lt-ie7"><![endif]-->
+<!--[if IE 7]><html class="no-js lt-ie9 lt-ie8" <![endif]-->
+<!--[if IE 8]><html class="no-js lt-ie9" <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <title>PHP - Autoload</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/assets/img/favicon.ico" />
+
+    <!-- Come and get me RSS readers -->
+    <link rel="alternate" type="application/rss+xml" title="Eric G. Huang 不像樣工程師" href="http://justericgg.com/feed.xml" />
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <!--[if IE 8]><link rel="stylesheet" href="/assets/css/ie.css"><![endif]-->
+    <link rel="canonical" href="http://justericgg.com/blog/php-autoload/">
+
+    <!-- Modernizr -->
+    <script src="/assets/js/modernizr.custom.15390.js" type="text/javascript"></script>
+
+     <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
+<script>
+   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', '', 'auto');
+ga('send', 'pageview');
+
+</script>
+ 
+</head>
+
+
+<body>
+
+    <div class="header">
+     <div class="container">
+         <h1 class="logo"><a href="/">Eric G. Huang 不像樣工程師</a></h1>
+         <nav class="nav-collapse">
+             <ul class="noList">
+                 
+                 <li class="element first  ">
+                     <a href="/index.html">Home</a>
+                 </li> 
+                 
+                 <li class="element   ">
+                     <a href="/about">About</a>
+                 </li> 
+                 
+                 <li class="element   last">
+                     <a href="/contact">Contact</a>
+                 </li> 
+                 
+                 <li> <a href="https://github.com/brianmaierjr/long-haul" target="_blank">GitHub</a></li>
+             </ul>
+         </nav>
+     </div>
+ </div><!-- end .header -->
+
+
+   <div class="content">
+      <div class="container">
+         <div class="post">
+  
+  <h1 class="postTitle">PHP - Autoload</h1>
+  <p class="meta">May 03, 2014 | <span class="time">8</span> Minute Read</p>
+  
+  <p>Okay，我們可以透過 <code class="highlighter-rouge">include</code>, <code class="highlighter-rouge">include_once</code>, <code class="highlighter-rouge">require</code> 或是 <code class="highlighter-rouge">require_once</code> 來將檔案引入到我們目前正在編寫的這個檔案，我們也知道習慣上我們會將一個 Class 存放在單一的 PHP 檔案中，例如 Member.php 相對於 Member 這個 Class，當我們的程式需要用到這個 Class 的時候就可以用上述的方法來引用這個 Class 以供後續操作。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="s2">"Member.php"</span><span class="p">;</span>
+
+<span class="nv">$member</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Member</span><span class="p">();</span>
+<span class="nv">$member</span><span class="o">-&gt;</span><span class="na">getMemberList</span><span class="p">();</span></code></pre></figure>
+
+<p>完美!!! 但是如果今天我們有一卡車的 Classes 要引入呢？</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="s2">"Member.php"</span><span class="p">;</span>
+<span class="k">include_once</span> <span class="s2">"Mailsender.php"</span><span class="p">;</span>
+<span class="k">include_once</span> <span class="s2">"Validate.php"</span><span class="p">;</span>
+<span class="nx">inlcude_once</span> <span class="s2">"Other.php"</span><span class="p">;</span></code></pre></figure>
+
+<p>What the #$%^# … Okay! 夠了! 這看上去實在是不怎麼舒服，光這些引入就佔了一堆行數，我都還沒開始寫呢! 那有沒有辦法可以解決這個問題呢？有的 - Autoload !!!</p>
+
+<h1 id="php-autoload">PHP Autoload</h1>
+<p>PHP Autoload 機制可以讓我們能夠在需要這個物件的時候才去真正的引入這個 Class，這個動作就是常聽到的 Lazyload 延遲載入，在這裡我們不會談論實際上 PHP 怎麼去實現這個機制，只階段性的介紹 PHP 內幾種 Autoload 的做法。</p>
+
+<ul>
+  <li>__autoload</li>
+  <li>spl_autoload</li>
+  <li>autoload 與 namespace</li>
+</ul>
+
+<h1 id="autoload">__autoload</h1>
+<p>PHP5 提供了 <code class="highlighter-rouge">__autoload()</code> 這個魔術方法實現上述 Autoload 機制，雖然這個方法效能上及方便性並不是非常理想(後續會提到其他做法)，讓我們來用這個方法實際寫點東西吧！</p>
+
+<p>為了讓例子看起來比較簡單，我們將不會把資料夾分的太細，以下為我們的根目錄資料夾。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>+ classes
++-- Member.php
+- autoload.php
+- index.php
+</code></pre>
+</div>
+
+<p>首先我們看到 classes 資料夾底下的 Member.php。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//classes/Member.php
+</span><span class="k">class</span> <span class="nc">Member</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getMemberList</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"print member list...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>是的! 沒什麼特別的，我們在 classes 資料夾底下建立了一個 Member Class 包含了一個 public method <code class="highlighter-rouge">getMemberList()</code> 簡單的輸出一串字串 print member list…</p>
+
+<p>接著來到我們的重頭戲 autoload.php 這個檔案</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//autoload.php
+</span><span class="k">function</span> <span class="nf">__autoload</span><span class="p">(</span><span class="nv">$className</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$filename</span> <span class="o">=</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/classes/"</span> <span class="o">.</span> <span class="nv">$className</span> <span class="o">.</span> <span class="s2">".php"</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">is_readable</span><span class="p">(</span><span class="nv">$filename</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">require</span> <span class="nv">$filename</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>在這個 function 內，我們首先取得存放 classes 路徑中的檔案名稱 <code class="highlighter-rouge">$filename</code> 接著我們用到了 <code class="highlighter-rouge">is_readable()</code> 這個 PHP 內建 function 判斷是檔案是否存在及可讀取，然後 require 引入這個檔案。聽起來棒極了，但是你沒有告訴我怎麼使用這個 <code class="highlighter-rouge">__autoload()</code> 這個 function 啊!!! 別急，究竟要怎麼讓這個東西動起來，讓我們看下去…</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/autoload.php"</span><span class="p">;</span>
+
+<span class="nv">$member</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Member</span><span class="p">();</span>
+<span class="nv">$member</span><span class="o">-&gt;</span><span class="na">getMemberList</span><span class="p">();</span></code></pre></figure>
+
+<p>我們將 autoload.php 引入到我們程式的最一開始，現在當需要使用在 classes 目錄底下(不包含子目錄)的所有 class 都將會自動被載入，你不需要在手動的引入你所需要的 class。</p>
+
+<p>執行 index.php 會輸出一段文字 <code class="highlighter-rouge">print member list...</code> 在你的 browser 上，太神奇了!!!</p>
+
+<p>什麼!!! 有件事我忘了跟你說嗎？ 呃… <code class="highlighter-rouge">__autoload()</code> 不能重覆的被定義，也就是說，當你嘗試引入兩支不一樣的 autoload.php (或許你有其他目錄底下的 class 也想被自動載入…) 的時候，PHP 將會報出錯誤訊息 <code class="highlighter-rouge">Fatal error: Cannot redeclare __autoload()...</code>。</p>
+
+<p>這樣子很不方便耶! 別急，PHP 當然知道要幫你解決這個問題，下一章節將說明。
+(你當然可以通過 php.ini 設定 include path 來解決這樣子的問題，不過這有點不明智就是了…)</p>
+
+<h1 id="splautoload--splautoloadregister">spl_autoload 與 spl_autoload_register</h1>
+
+<p>PHP 在 5.1.2 以後提供了 SPL 這個方便的大玩意，SPL 全名為 Standard PHP Library，顧名思義，提供你 許多 Interface 及 class，目的為解決常見的問題。</p>
+
+<ul>
+  <li>
+    <p>spl_autoload
+預設實作 <code class="highlighter-rouge">__autoload()</code> 魔術方法，也就是說，當 <code class="highlighter-rouge">spl_autoload_register()</code> 沒有定義或是沒有帶任何參數的時候，預設會採用 <code class="highlighter-rouge">__autoload()</code> 這個 function</p>
+  </li>
+  <li>
+    <p>spl_autoload_register
+<code class="highlighter-rouge">spl_autoload_register()</code> 讓你能夠註冊你自定義的 autoload function，當 spl_autoload_register() 有註冊之後，<code class="highlighter-rouge">__autoload()</code> 將會失效，你必需自己手動將 <code class="highlighter-rouge">__autoload()</code> 註冊，才能使用。</p>
+  </li>
+</ul>
+
+<p>廢話不多說，我們來寫點程式。</p>
+
+<p>首先我們新增兩個目錄 first, second 在我們剛剛建立的目錄，同時也個新增兩個 class 在 first 和 second 底下。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>+ classes
++-- Member.php
++ first
++-- First.php
++ second
++-- Second.php
+- autoload.php
+- index.php
+</code></pre>
+</div>
+
+<p>讓我們來看一下 First.php 和 Second.php 的內容。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//first/First.php
+</span><span class="k">class</span> <span class="nc">First</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">doSomething</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"I am first class...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//second/Second.php
+</span><span class="k">class</span> <span class="nc">Second</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">doSomething</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"I am second class...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>新增的這兩個 class 內容沒什麼特別的，各有一個 <code class="highlighter-rouge">doSomething()</code> 的 method 分別輸出 <code class="highlighter-rouge">I am first class...</code> 和 <code class="highlighter-rouge">I am second class...</code>， 接著我們來修改一下我們 index.php。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="nv">$first</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">First</span><span class="p">();</span>
+<span class="nv">$first</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span>
+
+<span class="nv">$second</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Second</span><span class="p">();</span>
+<span class="nv">$second</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span></code></pre></figure>
+
+<p>聰明的你一定會說，你把 autoload.php 的引入拿掉，這一定出錯的啊！ 沒錯，所以我們現在要來註冊我們自己定義的 autoload，我們在資料夾底下再新增兩個檔案 firstAutoload.php 和 secondAutoload.php。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>+ classes
++-- Member.php
++ first
++-- First.php
++ second
++-- Second.php
+- firstAutoload.php
+- secondAutoload.php
+- autoload.php
+- index.php
+</code></pre>
+</div>
+
+<p>接著我們來看看這兩個 autoload 裡寫了些什麼。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//firstAutoload.php
+</span><span class="k">function</span> <span class="nf">firstAutoload</span><span class="p">(</span><span class="nv">$className</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$filename</span> <span class="o">=</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/first/"</span> <span class="o">.</span> <span class="nv">$className</span> <span class="o">.</span> <span class="s2">".php"</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">is_readable</span><span class="p">(</span><span class="nv">$filename</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">require</span> <span class="nv">$filename</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nb">spl_autoload_register</span><span class="p">(</span><span class="s1">'firstAutoload'</span><span class="p">);</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//secondAutoload.php
+</span><span class="k">function</span> <span class="nf">secondAutoload</span><span class="p">(</span><span class="nv">$className</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$filename</span> <span class="o">=</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/second/"</span> <span class="o">.</span> <span class="nv">$className</span> <span class="o">.</span> <span class="s2">".php"</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">is_readable</span><span class="p">(</span><span class="nv">$filename</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">require</span> <span class="nv">$filename</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nb">spl_autoload_register</span><span class="p">(</span><span class="s1">'secondAutoload'</span><span class="p">);</span></code></pre></figure>
+
+<p>我們定義了自己的 autoload function 之後就使用 <code class="highlighter-rouge">spl_autoload_register()</code> 註冊這個 function 的名稱，接著我們在 index.php 裡把這兩個自定義的 autoload 檔案引入。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/firstAutoload.php"</span><span class="p">;</span>
+<span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/secondAutoload.php"</span><span class="p">;</span>
+
+<span class="nv">$first</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">First</span><span class="p">();</span>
+<span class="nv">$first</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span>
+
+<span class="nv">$second</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Second</span><span class="p">();</span>
+<span class="nv">$second</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span></code></pre></figure>
+
+<p>完美的輸出像這樣子的畫面。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>I am first class...
+I am second class...
+</code></pre>
+</div>
+
+<p>眼尖的你一定發現了，我們這樣子每要加入一個目錄放 class 不就要多寫一個 autoload，而且還要引入這些檔案，那不就跟原來一樣，喔不對，還比原來麻煩。
+嗯，你說的沒錯，那我們用 foreach 來處理這樣的問題呢？</p>
+
+<p>我們再新增一個檔案 allAutoload.php 在目錄底下，並看看內容寫了些什麼。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//allAutoload.php
+</span>
+<span class="k">function</span> <span class="nf">allAutoload</span><span class="p">(</span><span class="nv">$className</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$folders</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+        <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/first/"</span><span class="p">,</span>
+        <span class="nx">__DIR__</span> <span class="o">.</span><span class="s2">"/second/"</span><span class="p">,</span>
+    <span class="p">);</span>
+
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$folders</span> <span class="k">as</span> <span class="nv">$folder</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$fileName</span> <span class="o">=</span> <span class="nv">$folder</span> <span class="o">.</span> <span class="nv">$className</span> <span class="o">.</span> <span class="s2">".php"</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">is_readable</span><span class="p">(</span><span class="nv">$fileName</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">require</span> <span class="nv">$fileName</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nb">spl_autoload_register</span><span class="p">(</span><span class="s1">'allAutoload'</span><span class="p">);</span></code></pre></figure>
+
+<p>Okay，我們把我們想要自動載入的目錄都設定在一個 array 裡，接著我們 foreach 這個 array，裡面做的事其實就跟先前的一樣，接著我們用 <code class="highlighter-rouge">spl_autoload_register()</code> 註冊這個 function 的名稱，我們來看一下 index.php 做了哪些改變。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/allAutoload.php"</span><span class="p">;</span>
+
+<span class="nv">$first</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">First</span><span class="p">();</span>
+<span class="nv">$first</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span>
+
+<span class="nv">$second</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Second</span><span class="p">();</span>
+<span class="nv">$second</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span></code></pre></figure>
+
+<p>這次我們只需要引入一個 allAutoload.php 檔案了，我們又再一次完全的輸出了…
+<code class="highlighter-rouge">
+I am first class...
+I am second class...
+</code></p>
+
+<p>看起來是不錯，不過聰明的你一定又發現了，這樣子我們每次要新增一個 class 目錄或是子目錄的時候，都要去更動我們的 autoload 檔案耶，這樣還是很麻煩呀！</p>
+
+<p>沒關係，是 namespace 該出場的時候了。</p>
+
+<h1 id="autoload--namespace">autoload 與 namespace</h1>
+
+<p>PHP 5.3.0 以後提供了namespace (命名空間) 的功能解決了 class 名稱重覆定義造成衝突的問題，這問題很容易發生在你的 project 內有使用到其他第三方的程式庫的時候。而 <a href="http://www.php-fig.org/">PHP FIG</a> 也在它所制定的 <a href="http://www.php-fig.org/psr/psr-0/">PSR-0</a> 定義了依照 namespace 使用 autoload 的方法。</p>
+
+<p>我們先來看一下 簡單的 namespace 使用方法。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//MyClass.php
+</span>
+<span class="k">namespace</span> <span class="nx">MyNamespace</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">MyClass</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">doSomething</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"This is my class...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/MyClass.php"</span><span class="p">;</span>
+
+<span class="nv">$myClass</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\MyNamespace\MyClass</span><span class="p">();</span>
+<span class="nv">$myClass</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span></code></pre></figure>
+
+<p>在 MyClass.php 內，我們看到 <code class="highlighter-rouge">namespace MyNamespace;</code> 定義了這個 class 的命名空間，也就是說當我們之後需要實例化這個 class 的時候，我們不能像這樣子實例化這個 class <code class="highlighter-rouge">new MyClass();</code>，我們需要在 class 名稱前面加上命名空間，命名空間以 <code class="highlighter-rouge">\</code> 做分隔，<code class="highlighter-rouge">new \MyNamespace\MyClass();</code>，如同上面的 index.php 一樣，執行 index.php 完美的輸出…</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>This is my class...
+</code></pre>
+</div>
+
+<p>讓我們來依照 PSR-0 的 autoload 範例(出處: http://www.php-fig.org/psr/psr-0/)來寫我們的 autoload 吧！
+首先我們想要將我們的 class 全部整理到根目錄下的 classes 目錄的 MyNamespace 目錄底下，我們先來看一下我們的目錄結構。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>+ classes
++-+ MyNamespace
+- autoload.php
+- index.php
+</code></pre>
+</div>
+
+<p>當然，我們還沒有建立任何的 class 我們的 MyNmaespace 目錄底下，我們先來看一下 autoload.php 寫了些什麼。</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//autoload.php
+</span>
+<span class="k">function</span> <span class="nf">autoload</span><span class="p">(</span><span class="nv">$className</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$className</span> <span class="o">=</span> <span class="nb">ltrim</span><span class="p">(</span><span class="nv">$className</span><span class="p">,</span> <span class="s1">'\\'</span><span class="p">);</span>
+    <span class="nv">$fileName</span>  <span class="o">=</span> <span class="s1">''</span><span class="p">;</span>
+    <span class="nv">$namespace</span> <span class="o">=</span> <span class="s1">''</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$lastNsPos</span> <span class="o">=</span> <span class="nb">strrpos</span><span class="p">(</span><span class="nv">$className</span><span class="p">,</span> <span class="s1">'\\'</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nv">$namespace</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$className</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nv">$lastNsPos</span><span class="p">);</span>
+        <span class="nv">$className</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$className</span><span class="p">,</span> <span class="nv">$lastNsPos</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="nv">$fileName</span>  <span class="o">=</span> <span class="s1">'classes/'</span> <span class="o">.</span> <span class="nb">str_replace</span><span class="p">(</span><span class="s1">'\\'</span><span class="p">,</span> <span class="nx">DIRECTORY_SEPARATOR</span><span class="p">,</span> <span class="nv">$namespace</span><span class="p">)</span> <span class="o">.</span> <span class="nx">DIRECTORY_SEPARATOR</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nv">$fileName</span> <span class="o">.=</span> <span class="nb">str_replace</span><span class="p">(</span><span class="s1">'_'</span><span class="p">,</span> <span class="nx">DIRECTORY_SEPARATOR</span><span class="p">,</span> <span class="nv">$className</span><span class="p">)</span> <span class="o">.</span> <span class="s1">'.php'</span><span class="p">;</span>
+
+    <span class="k">require</span> <span class="nv">$fileName</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nb">spl_autoload_register</span><span class="p">(</span><span class="s1">'autoload'</span><span class="p">);</span></code></pre></figure>
+
+<p>autoload.php 會依照定義的 namespace 把 <code class="highlighter-rouge">\</code> 替換成系統的目錄分隔符號(最後一個 <code class="highlighter-rouge">\</code> 之後的 <code class="highlighter-rouge">_</code> 也會被替換成系統目錄分隔符號)，找到相對應的 class 檔案並引入。我們只要在程式的一開始引入這支 autoload.php 檔案，就可以在不需要手動引入 class 的情況下任意的實例化 MyNamespace 目錄底下的 class 檔案並進行操作，讓我們實際在 MyNamespace 目錄底下建立一個 class 及 兩個子目錄各包含一個 class 檔案。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>+ classes
++-+ MyNamespace
++-+-- MyClass.php
++-+-+ Member
++-+-+-- Member.php
++-+-+ Email
++-+-+-- Mailler.php
+- autoload.php
+- index.php
+</code></pre>
+</div>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//classes/MyNamespace/MyClass.php
+</span>
+<span class="k">namespace</span> <span class="nx">MyNamespace</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">MyClass</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">doSomething</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"This is my class...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//classes/MyNamespace/Member/Member.php
+</span>
+<span class="k">namespace</span> <span class="nx">MyNamespace\Member</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Member</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getMemberList</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"This is member list...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//classes/MyNamespace/Email/Mailler.php
+</span>
+<span class="k">namespace</span> <span class="nx">MyNamespace\Email</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Mailler</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">sendMail</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s2">"send email...&lt;br&gt;"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>值得注意的是當我們在建立一個新的 class 的時候，千萬記得將 class 的 namespace 定義到正確的目錄結構上，這樣子我們的 autoload 才能夠正確的辨認相對應的 class，我們來看看我們的 index.php 內容與執行的結果吧！</p>
+
+<figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<span class="c1">//index.php
+</span><span class="k">include_once</span> <span class="nx">__DIR__</span> <span class="o">.</span> <span class="s2">"/autoload.php"</span><span class="p">;</span>
+
+<span class="nv">$myClass</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\MyNamespace\MyClass</span><span class="p">();</span>
+<span class="nv">$myClass</span><span class="o">-&gt;</span><span class="na">doSomething</span><span class="p">();</span>
+
+<span class="nv">$member</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\MyNamespace\Member\Member</span><span class="p">();</span>
+<span class="nv">$member</span><span class="o">-&gt;</span><span class="na">getMemberList</span><span class="p">();</span>
+
+<span class="nv">$mailler</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\MyNamespace\Email\Mailler</span><span class="p">();</span>
+<span class="nv">$mailler</span><span class="o">-&gt;</span><span class="na">sendMail</span><span class="p">();</span></code></pre></figure>
+
+<p>執行結果如下。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>This is my class...
+This is member list...
+send email...
+</code></pre>
+</div>
+
+<p>我們只引入了 autoload.php，之後只要是要實例化在 MyNamespace 目錄底下的 class 就都不用再手動引入了，未來想要增加新的 class 也不需要再去定義 array 或是 設定 php include path，如果覺得 <code class="highlighter-rouge">new \MyNamespace\Member\Member();</code>這樣的宣告方式太冗長了，可以考慮使用 <code class="highlighter-rouge">use</code> 這個 keyword，在  <a href="http://www.php.net/manual/en/language.namespaces.importing.php">Using namespaces: Aliasing/Importing</a> 有詳細的用法。
+Okay，我想我們今天該告一段落了，如果覺得不想自己寫這些 autoload 的 function，有機會我會在寫一篇如何使用 <a href="https://getcomposer.org/">composer</a> 套件管理中的 autoload 來更方便的管理你的 autoload，我們下次見^^</p>
+
+
+
+  <!-- POST NAVIGATION -->
+  <div class="postNav clearfix">
+      
+      
+      <a class="next" href="/blog/experience-met-the-father-of-php-rasmus-lerdorf/"><span>與PHP之父Rasmus Lerdorf 見面心得&nbsp;&raquo;</span>
+       
+      </a>
+     
+  </div>
+</div>
+
+      </div>
+   </div><!-- end .content -->
+
+   <div class="footer">
+   <div class="container">
+      <p class="copy">&copy; 2016 <a href="http://brianmaierjr.com">Brian Maier Jr.</a> Powered by <a href="http://jekyllrb.com">Jekyll</a></p>
+
+      <div class="footer-links"> 
+         <ul class="noList"> 
+            
+            
+            
+            <li><a href="https://github.com/justericgg">
+                  <svg id="github" class="custom-icon" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" style="height: 30px; width: 30px;"><circle class="outer-shape" cx="50" cy="50" r="48" style="opacity: 1;"></circle>
+                  <path class="inner-shape" style="opacity: 1;" transform="translate(25,25) scale(0.5)" d="M50,1C22.938,1,1,22.938,1,50s21.938,49,49,49s49-21.938,49-49S77.062,1,50,1z M79.099,79.099 c-3.782,3.782-8.184,6.75-13.083,8.823c-1.245,0.526-2.509,0.989-3.79,1.387v-7.344c0-3.86-1.324-6.699-3.972-8.517 c1.659-0.16,3.182-0.383,4.57-0.67c1.388-0.287,2.855-0.702,4.402-1.245c1.547-0.543,2.935-1.189,4.163-1.938 c1.228-0.75,2.409-1.723,3.541-2.919s2.082-2.552,2.847-4.067s1.372-3.334,1.818-5.455c0.446-2.121,0.67-4.458,0.67-7.01 c0-4.945-1.611-9.155-4.833-12.633c1.467-3.828,1.308-7.991-0.478-12.489l-1.197-0.143c-0.829-0.096-2.321,0.255-4.474,1.053 c-2.153,0.798-4.57,2.105-7.249,3.924c-3.797-1.053-7.736-1.579-11.82-1.579c-4.115,0-8.039,0.526-11.772,1.579 c-1.69-1.149-3.294-2.097-4.809-2.847c-1.515-0.75-2.727-1.26-3.637-1.532c-0.909-0.271-1.754-0.439-2.536-0.503 c-0.782-0.064-1.284-0.079-1.507-0.048c-0.223,0.031-0.383,0.064-0.478,0.096c-1.787,4.53-1.946,8.694-0.478,12.489 c-3.222,3.477-4.833,7.688-4.833,12.633c0,2.552,0.223,4.889,0.67,7.01c0.447,2.121,1.053,3.94,1.818,5.455 c0.765,1.515,1.715,2.871,2.847,4.067s2.313,2.169,3.541,2.919c1.228,0.751,2.616,1.396,4.163,1.938 c1.547,0.543,3.014,0.957,4.402,1.245c1.388,0.287,2.911,0.511,4.57,0.67c-2.616,1.787-3.924,4.626-3.924,8.517v7.487 c-1.445-0.43-2.869-0.938-4.268-1.53c-4.899-2.073-9.301-5.041-13.083-8.823c-3.782-3.782-6.75-8.184-8.823-13.083 C9.934,60.948,8.847,55.56,8.847,50s1.087-10.948,3.231-16.016c2.073-4.899,5.041-9.301,8.823-13.083s8.184-6.75,13.083-8.823 C39.052,9.934,44.44,8.847,50,8.847s10.948,1.087,16.016,3.231c4.9,2.073,9.301,5.041,13.083,8.823 c3.782,3.782,6.75,8.184,8.823,13.083c2.143,5.069,3.23,10.457,3.23,16.016s-1.087,10.948-3.231,16.016 C85.848,70.915,82.88,75.317,79.099,79.099L79.099,79.099z"></path>
+                  </svg>
+            </a></li>
+             
+            
+            <li><a href="mailto:eric.g.yuan@gmail.com">
+                  <svg id="mail" class="custom-icon" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" style="height: 30px; width: 30px;"><circle class="outer-shape" cx="50" cy="50" r="48" style="opacity: 1;"></circle>
+                  <path class="inner-shape" style="opacity: 1;" transform="translate(25,25) scale(0.5)" d="M50,1C22.938,1,1,22.938,1,50s21.938,49,49,49s49-21.938,49-49S77.062,1,50,1z M25.5,25.5h49 c0.874,0,1.723,0.188,2.502,0.542L50,57.544L22.998,26.041C23.777,25.687,24.626,25.499,25.5,25.5L25.5,25.5z M19.375,68.375v-36.75 c0-0.128,0.005-0.256,0.014-0.383l17.96,20.953L19.587,69.958C19.448,69.447,19.376,68.916,19.375,68.375L19.375,68.375z M74.5,74.5 h-49c-0.541,0-1.072-0.073-1.583-0.212l17.429-17.429L50,66.956l8.653-10.096l17.429,17.429C75.572,74.427,75.041,74.5,74.5,74.5 L74.5,74.5z M80.625,68.375c0,0.541-0.073,1.072-0.211,1.583L62.652,52.195l17.96-20.953c0.008,0.127,0.014,0.255,0.014,0.383 L80.625,68.375L80.625,68.375z"></path>
+                  </svg>
+            </a></li>
+            
+         </ul>
+      </div>
+   </div>
+</div><!-- end .footer -->
+
+
+   <!-- Add jQuery and other scripts -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script>window.jQuery || document.write('<script src=""><\/script>')</script>
+<script src="/assets/js/dropcap.min.js"></script>
+<script src="/assets/js/responsive-nav.min.js"></script>
+<script src="/assets/js/scripts.js"></script>
+
+
+</body>
+
+</html>
