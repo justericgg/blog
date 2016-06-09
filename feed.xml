@@ -5,8 +5,8 @@
     <description></description>
     <link>http://justericgg.com/</link>
     <atom:link href="http://justericgg.com/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Thu, 09 Jun 2016 00:34:05 +0800</pubDate>
-    <lastBuildDate>Thu, 09 Jun 2016 00:34:05 +0800</lastBuildDate>
+    <pubDate>Thu, 09 Jun 2016 12:36:11 +0800</pubDate>
+    <lastBuildDate>Thu, 09 Jun 2016 12:36:11 +0800</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
     
       
@@ -102,15 +102,19 @@
     &lt;p&gt;伺服器端 PHP 設定 Cookie 後會在 Response Headers 加入 Set-Cookie 參數，告知瀏覽器要存入使用者 Cookie。
 &lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528003.jpg&quot; /&gt;&lt;/p&gt;
   &lt;/li&gt;
-  &lt;li&gt;瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie&lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie&lt;/p&gt;
+  &lt;/li&gt;
   &lt;li&gt;
     &lt;p&gt;送出 第二個 Http Request&lt;/p&gt;
 
     &lt;p&gt;這次因為瀏覽器有使用者的 Cookie 資訊了，所以會將這些資訊整理到 Http request headers 中的 Cookie 參數裡，讓伺服器端可以知道有哪些 Cookie 可以使用，以 PHP 來說就是 $_COOKIE 裡的資料。
 &lt;img src=&quot;/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528004.jpg&quot; /&gt;&lt;/p&gt;
   &lt;/li&gt;
-  &lt;li&gt;伺服器端回傳 Http Response
- 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。&lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;伺服器端回傳 Http Response
+ 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。&lt;/p&gt;
+  &lt;/li&gt;
 &lt;/ol&gt;
 
 &lt;h1 id=&quot;session&quot;&gt;什麼是 Session&lt;/h1&gt;

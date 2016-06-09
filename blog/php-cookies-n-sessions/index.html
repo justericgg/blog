@@ -162,15 +162,19 @@ ga('send', 'pageview');
     <p>伺服器端 PHP 設定 Cookie 後會在 Response Headers 加入 Set-Cookie 參數，告知瀏覽器要存入使用者 Cookie。
 <img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528003.jpg" /></p>
   </li>
-  <li>瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie</li>
+  <li>
+    <p>瀏覽器依據 Response Headers 中的 Set-Cookie 參數，將相關資訊存入使用者 Cookie</p>
+  </li>
   <li>
     <p>送出 第二個 Http Request</p>
 
     <p>這次因為瀏覽器有使用者的 Cookie 資訊了，所以會將這些資訊整理到 Http request headers 中的 Cookie 參數裡，讓伺服器端可以知道有哪些 Cookie 可以使用，以 PHP 來說就是 $_COOKIE 裡的資料。
 <img src="/assets/img/posts/2016-05-24-php-cookies-n-sessions/20160528004.jpg" /></p>
   </li>
-  <li>伺服器端回傳 Http Response
- 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。</li>
+  <li>
+    <p>伺服器端回傳 Http Response
+ 伺服器端 PHP 這次因為 Http Request 有傳入 Cookie 參數了，也就可以由 $_COOKIE 陣列中拿到相對應的資料了。</p>
+  </li>
 </ol>
 
 <h1 id="session">什麼是 Session</h1>
